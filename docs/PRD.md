@@ -43,7 +43,7 @@ Pengguna API adalah aplikasi client (mobile, web, bot) milik kita sendiri, bukan
 
 ## Kebutuhan fungsional: endpoint v1
 
-Semua endpoint data berada di bawah `/api/v1/accounts/:accountId`. Tanggal pakai format `YYYY-MM-DD`; jika `date` kosong, library memakai hari ini. Rentang pakai `start` dan `end`.
+Semua endpoint data berada di bawah `/api/v1/accounts/:accountId`. Tanggal pakai format `YYYY-MM-DD`; jika `date` kosong, handler memakai tanggal hari ini (zona waktu server). Rentang pakai `start` dan `end`.
 
 ### Koneksi akun
 

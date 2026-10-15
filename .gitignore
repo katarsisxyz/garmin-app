@@ -1,0 +1,4 @@
+data/
+*.db
+/garmin-app
+.env
