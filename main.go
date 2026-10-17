@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -59,6 +60,10 @@ func main() {
 	if err != nil || len(encKey) != 32 {
 		log.Fatal("TOKEN_ENC_KEY must be 64 hex characters (openssl rand -hex 32)")
 	}
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters (openssl rand -hex 32)")
+	}
 
 	dbPath := env("DB_PATH", "data/garmin.db")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
@@ -89,7 +94,23 @@ func main() {
 		return c.Next()
 	})
 	app.Get("/healthz", func(c *fiber.Ctx) error { return c.JSON(fiber.Map{"status": "ok"}) })
-	(&handler.Handler{Accounts: accts}).Register(app.Group("/api/v1", httpx.APIKey(apiKey)))
+	h := &handler.Handler{Accounts: accts, Secret: jwtSecret}
+	h.RegisterAuth(app.Group("/auth"))
+	h.Register(app.Group("/api/v1", httpx.Auth(apiKey, jwtSecret)))
+
+	// The React build (web/dist) is served from the same origin so the session cookie works.
+	webDir := env("WEB_DIR", "web/dist")
+	if _, err := os.Stat(filepath.Join(webDir, "index.html")); err == nil {
+		app.Static("/", webDir)
+		app.Get("/*", func(c *fiber.Ctx) error { // SPA routes like /login fall back to index.html
+			if strings.HasPrefix(c.Path(), "/api/") || strings.HasPrefix(c.Path(), "/auth/") {
+				return fiber.ErrNotFound
+			}
+			return c.SendFile(filepath.Join(webDir, "index.html"))
+		})
+	} else {
+		log.WithField("web_dir", webDir).Warn("frontend build not found; serving the API only")
+	}
 
 	go func() {
 		sig := make(chan os.Signal, 1)

@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "d77a77b5-e942-463d-a72a-d09d571f66a6",
+    "_postman_id": "4eba1ec6-1b27-491b-9610-797db4e2853e",
     "name": "Garmin Connect API",
     "description": "REST API over garminconnect-go. Set the environment, run Account connection > Connect first.\n\nErrors: {\"error\": {\"code\", \"message\", \"request_id\"}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -55,6 +55,142 @@
           ]
         }
       }
+    },
+    {
+      "name": "Web session (cookie)",
+      "description": "Browser-style login: Postman keeps the HttpOnly cookies between requests. No API key is sent.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Sets the session cookie, or mfa_pending + {mfa_required:true}. Rate limited to 5/min per IP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{garminEmail}}\",\n  \"password\": \"{{garminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "MFA",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/mfa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "mfa"
+              ]
+            },
+            "description": "Uses the mfa_pending cookie from Login.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{mfaCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Me: status",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/me/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "me",
+                "status"
+              ]
+            },
+            "description": "Account of the session cookie."
+          }
+        },
+        {
+          "name": "Me: daily summary",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/me/daily/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "me",
+                "daily",
+                "summary"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the session cookie; Garmin tokens stay stored."
+          }
+        }
+      ]
     },
     {
       "name": "Account connection",

@@ -7,8 +7,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -34,6 +36,7 @@ type GarminAccount struct {
 
 type pendingLogin struct {
 	g       *gc.Garmin
+	sink    *sink
 	expires time.Time
 }
 
@@ -75,7 +78,7 @@ func (a *Accounts) Get(ctx context.Context, id string) (*gc.Garmin, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := a.newClient(id, "", "")
+	g := a.newClient(&sink{id: id}, "", "")
 	if _, err := g.Login(ctx, tokens); err != nil {
 		return nil, err
 	}
@@ -83,38 +86,82 @@ func (a *Accounts) Get(ctx context.Context, id string) (*gc.Garmin, error) {
 	return g, nil
 }
 
-// Connect logs in with email and password. needsMFA means FinishMFA must follow within 10 minutes.
+// Connect logs in with email and password under a caller-chosen id. needsMFA
+// means FinishMFA(id, code) must follow within 10 minutes.
 func (a *Accounts) Connect(ctx context.Context, id, email, password string) (needsMFA bool, err error) {
-	g := a.newClient(id, email, password, gc.WithReturnOnMFA())
-	if needsMFA, err = g.Login(ctx, ""); err != nil {
-		return false, err
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if needsMFA {
-		a.pending[id] = pendingLogin{g, time.Now().Add(mfaTTL)}
-		return true, nil
-	}
-	a.clients[id] = g
-	return false, nil
+	needsMFA, _, err = a.login(ctx, id, id, email, password)
+	return needsMFA, err
 }
 
-// FinishMFA completes a pending login. A wrong code can be retried.
-func (a *Accounts) FinishMFA(ctx context.Context, id, code string) error {
+// ConnectWeb logs in without an id: the account id becomes the Garmin
+// profile id. With MFA it returns the key to pass to FinishMFA.
+func (a *Accounts) ConnectWeb(ctx context.Context, email, password string) (needsMFA bool, pendingKey, accountID string, err error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return false, "", "", err
+	}
+	pendingKey = "web:" + hex.EncodeToString(b)
+	needsMFA, accountID, err = a.login(ctx, pendingKey, "", email, password)
+	return needsMFA, pendingKey, accountID, err
+}
+
+// FinishMFA completes the login pending under key and returns its account id.
+// A wrong code can be retried.
+func (a *Accounts) FinishMFA(ctx context.Context, key, code string) (string, error) {
 	a.mu.Lock()
-	p, ok := a.pending[id]
+	p, ok := a.pending[key]
 	a.mu.Unlock()
 	if !ok || time.Now().After(p.expires) {
-		return ErrNoPendingMFA
+		return "", ErrNoPendingMFA
 	}
 	if err := p.g.ResumeLogin(ctx, code); err != nil {
-		return err
+		return "", err
 	}
 	a.mu.Lock()
-	delete(a.pending, id)
-	a.clients[id] = p.g
+	delete(a.pending, key)
 	a.mu.Unlock()
-	return nil
+	return a.finish(p.g, p.sink)
+}
+
+// login runs a password login. An empty id is taken from the Garmin profile once logged in.
+func (a *Accounts) login(ctx context.Context, key, id, email, password string) (bool, string, error) {
+	s := &sink{id: id}
+	g := a.newClient(s, email, password, gc.WithReturnOnMFA())
+	needsMFA, err := g.Login(ctx, "")
+	if err != nil {
+		return false, "", err
+	}
+	if needsMFA {
+		a.mu.Lock()
+		a.pending[key] = pendingLogin{g, s, time.Now().Add(mfaTTL)}
+		a.mu.Unlock()
+		return true, "", nil
+	}
+	id, err = a.finish(g, s)
+	return false, id, err
+}
+
+// finish names the account (if needed), stores its tokens and caches the client.
+func (a *Accounts) finish(g *gc.Garmin, s *sink) (string, error) {
+	id := s.get()
+	if id == "" {
+		switch {
+		case g.ProfileID != 0:
+			id = strconv.FormatInt(g.ProfileID, 10)
+		case g.DisplayName != "":
+			id = g.DisplayName
+		default:
+			return "", errors.New("garmin profile has no id")
+		}
+		s.set(id)
+	}
+	if err := a.save(id, g.Client.Dumps()); err != nil {
+		return "", err
+	}
+	a.mu.Lock()
+	a.clients[id] = g
+	a.mu.Unlock()
+	return id, nil
 }
 
 // Forget drops the cached client, e.g. after Garmin rejected its tokens.
@@ -133,8 +180,30 @@ func (a *Accounts) Disconnect(id string) error {
 	return a.db.Delete(&GarminAccount{AccountID: id}).Error
 }
 
-func (a *Accounts) newClient(id, email, password string, opts ...gc.Option) *gc.Garmin {
+// sink holds the account id token saves go to; empty until a web login knows it.
+type sink struct {
+	mu sync.Mutex
+	id string
+}
+
+func (s *sink) get() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.id
+}
+
+func (s *sink) set(id string) {
+	s.mu.Lock()
+	s.id = id
+	s.mu.Unlock()
+}
+
+func (a *Accounts) newClient(s *sink, email, password string, opts ...gc.Option) *gc.Garmin {
 	saver := gc.WithTokenSaver(func(tokens string) {
+		id := s.get()
+		if id == "" {
+			return // finish() saves them once the id is known
+		}
 		if err := a.save(id, tokens); err != nil {
 			a.log.WithError(err).WithField("account_id", id).Error("save garmin tokens")
 		}

@@ -143,9 +143,23 @@ Semua endpoint data berada di bawah `/api/v1/accounts/:accountId`. Tanggal pakai
 
 ## Autentikasi & manajemen sesi
 
-Ada dua lapis auth: client ke API kita memakai API key, dan API kita ke Garmin memakai token per akun.
+Ada dua lapis auth: client ke API kita memakai API key **atau** session cookie, dan API kita ke Garmin memakai token per akun.
 
-**Client → API.** Header `X-API-Key` dicek middleware Fiber terhadap env `API_KEY`. Tanpa key yang benar → 401. `accountId` adalah ID bebas dari sistem client (misal user ID).
+**Server/Postman → API.** Header `X-API-Key` dicek terhadap env `API_KEY`. Key yang benar boleh mengakses akun mana pun; `accountId` adalah ID bebas dari sistem client.
+
+**Browser → API (frontend web).** Browser tidak pernah memegang API key.
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `POST /auth/login` `{email, password}` | Login ke Garmin. Tanpa MFA → set cookie `session`. Dengan MFA → set cookie `mfa_pending` (10 menit) dan jawab `{"mfa_required": true}` |
+| `POST /auth/mfa` `{code}` | Selesaikan login dari cookie `mfa_pending`, lalu set cookie `session` |
+| `POST /auth/logout` | Hapus cookie `session` (token Garmin tetap tersimpan) |
+
+- Cookie `session` berisi JWT HS256 (env `JWT_SECRET`), `sub` = accountId, berlaku 7 hari; `HttpOnly`, `SameSite=Strict`, `Secure` saat HTTPS.
+- Untuk login web, accountId = Garmin profile ID (diambil setelah login), bukan pilihan client.
+- Session hanya boleh mengakses `/api/v1/accounts/me/...` atau ID-nya sendiri; ID lain → 403. `me` tanpa session → 400.
+- JWT tidak dicabut saat disconnect, tapi request sesudahnya tetap gagal `account_not_connected` karena token Garmin sudah dihapus.
+- `/auth/login` dan `/auth/mfa` dibatasi 5 request/menit per IP agar IP server tidak diblok Cloudflare Garmin.
 
 **API → Garmin.**
 
@@ -172,7 +186,7 @@ Aturan keamanan:
 | Logging | logrus dengan `logrus.JSONFormatter`, satu log per request: `request_id`, `method`, `path`, `status`, `latency_ms`, `account_id`, `error` |
 | Level log | Dari env `LOG_LEVEL` (default `info`); error Garmin 5xx/jaringan = `error`, 4xx = `warn` |
 | Data sensitif | Field `password`, `code`, token, dan header `X-API-Key` tidak pernah di-log |
-| Konfigurasi | Env saja: `PORT`, `API_KEY`, `TOKEN_ENC_KEY`, `DB_PATH`, `LOG_LEVEL` |
+| Konfigurasi | Env atau file `.env`: `PORT`, `API_KEY`, `TOKEN_ENC_KEY`, `JWT_SECRET`, `DB_PATH`, `WEB_DIR`, `LOG_LEVEL` |
 | Timeout | Context request diteruskan ke library; timeout per request 30 detik |
 | Concurrency | Satu `*gc.Garmin` per akun, dipakai bersama antar goroutine (library aman untuk concurrent use) |
 | Rate limit Garmin | Tidak polling; 429 dari Garmin diteruskan sebagai 429 ke client |
@@ -199,8 +213,9 @@ Library memakai `*slog.Logger` untuk debug log internalnya; v1 tidak menghubungk
 ```mermaid
 flowchart TD
     C[Client app<br/>header X-API-Key] --> MW
+    B[Browser - React SPA<br/>cookie session JWT] --> MW
     subgraph API[garmin-api - GoFiber]
-        MW[Middleware<br/>recover, requestid, logrus JSON, API key] --> H[Handlers<br/>parse query, call library, map errors]
+        MW[Middleware<br/>recover, requestid, logrus JSON, API key / JWT] --> H[Handlers<br/>parse query, call library, map errors]
         H --> A[Accounts<br/>one *gc.Garmin per account, MFA pending 10 min]
     end
     A --> L[garminconnect-go<br/>login, MFA, token refresh]
@@ -217,11 +232,16 @@ garmin-app/
 ├── main.go              # config env, logrus, Fiber app, routes, graceful shutdown
 ├── internal/
 │   ├── accounts/        # cache *gc.Garmin, connect/MFA, token store (GORM + SQLite)
-│   ├── handler/         # handler per grup: daily, body, activity, workout, ...
-│   └── httpx/           # middleware (API key, logger) + error mapper
+│   ├── handler/         # route API + /auth (login web, MFA, logout)
+│   └── httpx/           # middleware (API key / JWT session, logger) + error mapper
+├── web/                 # React + Vite + Tailwind; build ke web/dist, disajikan Fiber di /
+├── docs/design/         # desain FigCraft (dashboard, login, MFA; desktop + mobile)
+├── postman/             # koleksi + environment Postman
 ├── go.mod
 └── Dockerfile
 ```
+
+**Frontend.** SPA React di `web/` (halaman `/login`, `/mfa`, `/`), responsif desktop/mobile sesuai desain FigCraft. Fiber menyajikan `web/dist` dari origin yang sama supaya cookie session terkirim; rute SPA yang tidak dikenal jatuh ke `index.html`. Saat development, `npm run dev` (port 5173) mem-proxy `/api` dan `/auth` ke `:8080`.
 
 ## Format response & error
 

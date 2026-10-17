@@ -21,6 +21,7 @@ import (
 
 type Handler struct {
 	Accounts *accounts.Accounts
+	Secret   []byte // signs session cookies
 }
 
 type (
@@ -184,8 +185,28 @@ func (h *Handler) byID(fn idFn) fiber.Handler {
 	})
 }
 
+// accountID resolves :accountId. A cookie session may only use "me" or its own
+// id; "me" without a session is meaningless.
+func (h *Handler) accountID(c *fiber.Ctx) (string, error) {
+	id := c.Params("accountId")
+	if sess := httpx.SessionAccount(c); sess != "" {
+		if id != "me" && id != sess {
+			return "", &httpx.Error{Status: fiber.StatusForbidden, Code: "forbidden", Message: "a session can only access its own account"}
+		}
+		id = sess
+	} else if id == "me" {
+		return "", httpx.BadRequest(`"me" needs a browser session; use an account id with X-API-Key`)
+	}
+	c.Locals("account_id", id)
+	return id, nil
+}
+
 func (h *Handler) client(c *fiber.Ctx) (*gc.Garmin, error) {
-	g, err := h.Accounts.Get(c.UserContext(), c.Params("accountId"))
+	id, err := h.accountID(c)
+	if err != nil {
+		return nil, err
+	}
+	g, err := h.Accounts.Get(c.UserContext(), id)
 	if err != nil {
 		return nil, h.garminErr(c, err)
 	}
@@ -195,8 +216,8 @@ func (h *Handler) client(c *fiber.Ctx) (*gc.Garmin, error) {
 // garminErr drops the cached client when Garmin rejects its tokens, so the
 // next request (after a reconnect) starts fresh.
 func (h *Handler) garminErr(c *fiber.Ctx, err error) error {
-	if errors.Is(err, gc.ErrAuthentication) {
-		h.Accounts.Forget(c.Params("accountId"))
+	if id, ok := c.Locals("account_id").(string); ok && errors.Is(err, gc.ErrAuthentication) {
+		h.Accounts.Forget(id)
 	}
 	return err
 }
@@ -229,7 +250,11 @@ func (h *Handler) connect(c *fiber.Ctx) error {
 	if body.Email == "" || body.Password == "" {
 		return httpx.BadRequest("email and password are required")
 	}
-	needsMFA, err := h.Accounts.Connect(c.UserContext(), c.Params("accountId"), body.Email, body.Password)
+	id, err := h.accountID(c)
+	if err != nil {
+		return err
+	}
+	needsMFA, err := h.Accounts.Connect(c.UserContext(), id, body.Email, body.Password)
 	if err != nil {
 		return err
 	}
@@ -246,7 +271,11 @@ func (h *Handler) connectMFA(c *fiber.Ctx) error {
 	if body.Code == "" {
 		return httpx.BadRequest("code is required")
 	}
-	if err := h.Accounts.FinishMFA(c.UserContext(), c.Params("accountId"), body.Code); err != nil {
+	id, err := h.accountID(c)
+	if err != nil {
+		return err
+	}
+	if _, err := h.Accounts.FinishMFA(c.UserContext(), id, body.Code); err != nil {
 		return err
 	}
 	return c.JSON(fiber.Map{"connected": true})
@@ -264,8 +293,15 @@ func (h *Handler) status(c *fiber.Ctx) error {
 }
 
 func (h *Handler) disconnect(c *fiber.Ctx) error {
-	if err := h.Accounts.Disconnect(c.Params("accountId")); err != nil {
+	id, err := h.accountID(c)
+	if err != nil {
 		return err
+	}
+	if err := h.Accounts.Disconnect(id); err != nil {
+		return err
+	}
+	if httpx.SessionAccount(c) != "" {
+		httpx.ClearSession(c)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

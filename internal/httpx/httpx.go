@@ -10,6 +10,7 @@ import (
 	"garmin-app/internal/accounts"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	gc "github.com/katarsisxyz/garminconnect-go"
 	"github.com/sirupsen/logrus"
 )
@@ -92,7 +93,7 @@ func Logger(log *logrus.Logger) fiber.Handler {
 			"status":     status,
 			"latency_ms": time.Since(start).Milliseconds(),
 		})
-		if id := c.Params("accountId"); id != "" {
+		if id, ok := c.Locals("account_id").(string); ok {
 			entry = entry.WithField("account_id", id)
 		}
 		if e, ok := c.Locals("error").(string); ok {
@@ -110,12 +111,75 @@ func Logger(log *logrus.Logger) fiber.Handler {
 	}
 }
 
-// APIKey rejects requests whose X-API-Key header does not match key.
-func APIKey(key string) fiber.Handler {
+const (
+	sessionCookie = "session"
+	sessionTTL    = 7 * 24 * time.Hour
+	localSession  = "session_account"
+)
+
+// Auth lets a request through with a valid X-API-Key (any account) or a
+// session cookie (only its own account, see SessionAccount).
+func Auth(apiKey string, secret []byte) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if subtle.ConstantTimeCompare([]byte(c.Get("X-API-Key")), []byte(key)) != 1 {
-			return &Error{http.StatusUnauthorized, "unauthorized", "missing or invalid API key"}
+		if k := c.Get("X-API-Key"); k != "" {
+			if subtle.ConstantTimeCompare([]byte(k), []byte(apiKey)) != 1 {
+				return &Error{http.StatusUnauthorized, "unauthorized", "missing or invalid API key"}
+			}
+			return c.Next()
 		}
+		id, err := parseSession(c.Cookies(sessionCookie), secret)
+		if err != nil {
+			return &Error{http.StatusUnauthorized, "unauthorized", "login required"}
+		}
+		c.Locals(localSession, id)
 		return c.Next()
 	}
+}
+
+// SessionAccount returns the account id of a cookie session, or "" for API-key requests.
+func SessionAccount(c *fiber.Ctx) string {
+	id, _ := c.Locals(localSession).(string)
+	return id
+}
+
+// SetSession issues the session cookie: an HS256 JWT whose subject is the account id.
+func SetSession(c *fiber.Ctx, secret []byte, accountID string) error {
+	now := time.Now()
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Subject:   accountID,
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(sessionTTL)),
+	}).SignedString(secret)
+	if err != nil {
+		return err
+	}
+	SetCookie(c, sessionCookie, token, sessionTTL)
+	return nil
+}
+
+func ClearSession(c *fiber.Ctx) { SetCookie(c, sessionCookie, "", -1) }
+
+// SetCookie sets an HttpOnly, SameSite=Strict cookie; a negative ttl deletes it.
+func SetCookie(c *fiber.Ctx, name, value string, ttl time.Duration) {
+	ck := &fiber.Cookie{
+		Name: name, Value: value, Path: "/", HTTPOnly: true, SameSite: fiber.CookieSameSiteStrictMode,
+		Secure: c.Protocol() == "https", MaxAge: int(ttl.Seconds()),
+	}
+	if ttl < 0 {
+		ck.MaxAge, ck.Expires = -1, time.Unix(0, 0)
+	}
+	c.Cookie(ck)
+}
+
+func parseSession(token string, secret []byte) (string, error) {
+	var claims jwt.RegisteredClaims
+	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (any, error) { return secret, nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired())
+	if err != nil {
+		return "", err
+	}
+	if claims.Subject == "" {
+		return "", errors.New("session has no subject")
+	}
+	return claims.Subject, nil
 }

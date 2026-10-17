@@ -2,3 +2,6 @@ data/
 *.db
 /garmin-app
 .env
+node_modules/
+web/dist/
+/bin/
