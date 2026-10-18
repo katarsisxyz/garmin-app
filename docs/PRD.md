@@ -94,6 +94,7 @@ Semua endpoint data berada di bawah `/api/v1/accounts/:accountId`. Tanggal pakai
 | DELETE | `/body/weigh-ins/:pk?date=` | `DeleteWeighIn` |
 | GET | `/body/blood-pressure?start=&end=` | `GetBloodPressure` |
 | POST | `/body/blood-pressure` body `{systolic, diastolic, pulse, timestamp, notes}` | `SetBloodPressure` |
+| DELETE | `/body/blood-pressure/:version?date=` | `DeleteBloodPressure` |
 
 ### Performa & training
 
@@ -129,6 +130,8 @@ Semua endpoint data berada di bawah `/api/v1/accounts/:accountId`. Tanggal pakai
 | Method | Path | Method library |
 | --- | --- | --- |
 | GET | `/workouts?start=&limit=` | `GetWorkouts` |
+| GET | `/workouts/scheduled?year=&month=` | `GetScheduledWorkouts` (kalender bulan itu) |
+| DELETE | `/workouts/scheduled/:id` | `UnscheduleWorkout` |
 | GET | `/workouts/:id` | `GetWorkoutByID` |
 | POST | `/workouts` body JSON workout | `UploadWorkout` |
 | DELETE | `/workouts/:id` | `DeleteWorkout` |
@@ -241,7 +244,7 @@ garmin-app/
 └── Dockerfile
 ```
 
-**Frontend.** SPA React di `web/` (halaman `/login`, `/mfa`, `/`), responsif desktop/mobile sesuai desain FigCraft. Fiber menyajikan `web/dist` dari origin yang sama supaya cookie session terkirim; rute SPA yang tidak dikenal jatuh ke `index.html`. Saat development, `npm run dev` (port 5173) mem-proxy `/api` dan `/auth` ke `:8080`.
+**Frontend.** SPA React di `web/` (halaman `/login`, `/mfa`, `/` hari ini, `/activities` + detail, `/sleep`, `/body`, `/workouts`), responsif desktop/mobile sesuai desain FigCraft. Fiber menyajikan `web/dist` dari origin yang sama supaya cookie session terkirim; rute SPA yang tidak dikenal jatuh ke `index.html`. Saat development, `npm run dev` (port 5173) mem-proxy `/api` dan `/auth` ke `:8080`.
 
 ## Format response & error
 

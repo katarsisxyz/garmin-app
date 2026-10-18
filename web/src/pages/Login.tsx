@@ -4,7 +4,7 @@ import { navigate } from '../App'
 import AuthLayout, { Alert, SubmitButton } from './AuthLayout'
 
 const input =
-  'w-full rounded-[10px] border border-gray-300 bg-white px-4 py-3 text-[15px] outline-none placeholder:text-gray-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
+  'w-full rounded-xl border border-line bg-white px-4 py-3 text-[15px] outline-none placeholder:text-[#a3aca7] focus:border-accent focus:ring-2 focus:ring-accent/15'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      const r = await api<{ mfa_required: boolean }>('/auth/login', { email, password })
+      const r = await api<{ mfa_required: boolean }>('/auth/login', { json: { email, password } })
       navigate(r.mfa_required ? '/mfa' : '/')
     } catch (err) {
       setError(errorText(err))
@@ -31,8 +31,8 @@ export default function Login() {
     <AuthLayout>
       <form onSubmit={submit} className="flex flex-col gap-5">
         <div className="space-y-2 pb-2">
-          <h1 className="text-[26px] font-bold lg:text-[28px]">Hubungkan akun Garmin</h1>
-          <p className="text-[15px] leading-normal text-gray-500">Masuk dengan email dan password Garmin Connect kamu.</p>
+          <h1 className="text-[28px] font-extrabold tracking-tight">Hubungkan akun Garmin</h1>
+          <p className="text-[15px] leading-normal text-muted">Masuk dengan email dan password Garmin Connect kamu.</p>
         </div>
 
         {error && <Alert tone="error">{error}</Alert>}
@@ -64,7 +64,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => setShow(!show)}
-              className="absolute inset-y-0 right-4 text-[13px] font-semibold text-blue-600"
+              className="absolute inset-y-0 right-4 text-[13px] font-semibold text-accent"
             >
               {show ? 'Sembunyikan' : 'Tampilkan'}
             </button>
@@ -76,7 +76,7 @@ export default function Login() {
         <Alert tone="success">
           Password hanya dipakai untuk login ke Garmin dan tidak disimpan. Yang kami simpan hanya token, dalam keadaan terenkripsi.
         </Alert>
-        <p className="text-[13px] leading-normal text-gray-500">
+        <p className="text-[13px] leading-normal text-muted">
           Akunmu memakai verifikasi 2 langkah? Kami akan meminta kode setelah langkah ini.
         </p>
       </form>

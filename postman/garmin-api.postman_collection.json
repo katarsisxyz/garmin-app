@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "4eba1ec6-1b27-491b-9610-797db4e2853e",
+    "_postman_id": "6ab681b2-8af3-45ad-b8a7-e8655539feba",
     "name": "Garmin Connect API",
     "description": "REST API over garminconnect-go. Set the environment, run Account connection > Connect first.\n\nErrors: {\"error\": {\"code\", \"message\", \"request_id\"}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -1023,6 +1023,35 @@
           }
         },
         {
+          "name": "Delete blood pressure",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{accountId}}/body/blood-pressure/{{bpVersion}}?date={{date}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{accountId}}",
+                "body",
+                "blood-pressure",
+                "{{bpVersion}}"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "{{date}}"
+                }
+              ]
+            },
+            "description": "bpVersion is a measurement's version from the Blood pressure response; date is its day."
+          }
+        },
+        {
           "name": "Add blood pressure",
           "request": {
             "method": "POST",
@@ -1670,6 +1699,62 @@
               ]
             },
             "description": ""
+          }
+        },
+        {
+          "name": "Scheduled (calendar)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{accountId}}/workouts/scheduled?year=2026&month=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{accountId}}",
+                "workouts",
+                "scheduled"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Garmin calendar for a month (1-12); workouts are calendarItems with itemType=workout. Defaults to this month."
+          }
+        },
+        {
+          "name": "Unschedule",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{accountId}}/workouts/scheduled/{{scheduledId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{accountId}}",
+                "workouts",
+                "scheduled",
+                "{{scheduledId}}"
+              ],
+              "query": []
+            },
+            "description": "scheduledId is a calendar item's id."
           }
         },
         {

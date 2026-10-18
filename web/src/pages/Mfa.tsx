@@ -40,7 +40,7 @@ export default function Mfa() {
     setLoading(true)
     setError('')
     try {
-      await api('/auth/mfa', { code: digits.join('') })
+      await api('/auth/mfa', { json: { code: digits.join('') } })
       navigate('/')
     } catch (err) {
       setExpired(err instanceof ApiError && err.code === 'mfa_not_pending')
@@ -56,8 +56,8 @@ export default function Mfa() {
     <AuthLayout>
       <form onSubmit={submit} className="flex flex-col gap-5">
         <div className="space-y-2 pb-2">
-          <h1 className="text-[26px] font-bold lg:text-[28px]">Masukkan kode verifikasi</h1>
-          <p className="text-[15px] leading-normal text-gray-500">
+          <h1 className="text-[28px] font-extrabold tracking-tight">Masukkan kode verifikasi</h1>
+          <p className="text-[15px] leading-normal text-muted">
             Garmin mengirim kode 6 digit ke email atau aplikasi autentikator kamu. Kode berlaku 10 menit.
           </p>
         </div>
@@ -81,7 +81,7 @@ export default function Mfa() {
                 autoComplete={i === 0 ? 'one-time-code' : 'off'}
                 autoFocus={i === 0}
                 aria-label={`Digit ${i + 1}`}
-                className="h-16 w-full min-w-0 rounded-[10px] border border-gray-300 text-center text-2xl font-semibold outline-none focus:border-2 focus:border-blue-600"
+                className="h-16 w-full min-w-0 rounded-xl border border-line text-center text-2xl font-semibold outline-none focus:border-2 focus:border-accent"
               />
             ))}
           </div>
@@ -92,8 +92,8 @@ export default function Mfa() {
         <Alert tone="info">
           Tidak menerima kode? Cek folder spam, atau kembali dan login ulang untuk mendapatkan kode baru.
         </Alert>
-        <button type="button" onClick={() => navigate('/login')} className="self-start text-sm font-semibold text-blue-600">
-          ←&nbsp;&nbsp;Kembali ke login
+        <button type="button" onClick={() => navigate('/login')} className="self-start text-sm font-semibold text-accent">
+          Kembali ke login
         </button>
       </form>
     </AuthLayout>

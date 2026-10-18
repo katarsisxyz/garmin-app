@@ -78,6 +78,13 @@ func (h *Handler) Register(r fiber.Router) {
 	}))
 	a.Get("/body/blood-pressure", h.dateRange((*gc.Garmin).GetBloodPressure))
 	a.Post("/body/blood-pressure", h.raw(addBloodPressure))
+	a.Delete("/body/blood-pressure/:version", h.raw(func(ctx context.Context, g *gc.Garmin, c *fiber.Ctx) (json.RawMessage, error) {
+		v, err := paramID(c, "version")
+		if err != nil {
+			return nil, err
+		}
+		return g.DeleteBloodPressure(ctx, v, c.Query("date"))
+	}))
 
 	a.Get("/performance/training-readiness", h.date((*gc.Garmin).GetTrainingReadiness))
 	a.Get("/performance/training-status", h.date((*gc.Garmin).GetTrainingStatus))
@@ -118,6 +125,12 @@ func (h *Handler) Register(r fiber.Router) {
 	a.Post("/workouts", h.raw(func(ctx context.Context, g *gc.Garmin, c *fiber.Ctx) (json.RawMessage, error) {
 		return g.UploadWorkout(ctx, json.RawMessage(c.Body()))
 	}))
+	// /workouts/scheduled must be registered before /workouts/:id.
+	a.Get("/workouts/scheduled", h.raw(func(ctx context.Context, g *gc.Garmin, c *fiber.Ctx) (json.RawMessage, error) {
+		now := time.Now()
+		return g.GetScheduledWorkouts(ctx, c.QueryInt("year", now.Year()), c.QueryInt("month", int(now.Month())))
+	}))
+	a.Delete("/workouts/scheduled/:id", h.byID((*gc.Garmin).UnscheduleWorkout))
 	a.Get("/workouts/:id", h.byID((*gc.Garmin).GetWorkoutByID))
 	a.Delete("/workouts/:id", h.byID((*gc.Garmin).DeleteWorkout))
 	a.Post("/workouts/:id/schedule", h.raw(scheduleWorkout))

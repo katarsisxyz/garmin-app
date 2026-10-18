@@ -1,4 +1,4 @@
-.PHONY: help setup dev api web build run test clean
+.PHONY: help setup dev api serve web build run test clean
 
 BIN := bin/garmin-app
 
@@ -22,11 +22,17 @@ setup: ## Install dependency Go + npm, siapkan .env dan secret
 	@grep -q '^API_KEY=change-me$$' .env && echo "  Peringatan: API_KEY masih 'change-me', ganti sebelum dipakai di luar lokal." || true
 	@echo "Setup selesai. Jalankan: make dev"
 
+# The backend is compiled before Vite starts, so the proxy never hits a port that isn't listening yet.
 dev: ## Jalankan backend (:8080) + frontend dev server (:5173) bersamaan
-	@$(MAKE) -j2 --no-print-directory api web
+	go build -o $(BIN) .
+	@$(MAKE) -j2 --no-print-directory serve web
 
 api: ## Jalankan backend saja
-	go run .
+	go build -o $(BIN) .
+	./$(BIN)
+
+serve:
+	./$(BIN)
 
 web: ## Jalankan frontend dev server saja (proxy /api & /auth ke :8080)
 	cd web && npm run dev
