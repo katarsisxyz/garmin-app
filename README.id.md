@@ -105,6 +105,7 @@ Detail endpoint, format response, dan kode error ada di [docs/API.md](docs/API.m
 - [docs/PRD.md](docs/PRD.md): tujuan, keputusan desain, milestone, dan risiko
 - [postman/](postman/): koleksi Postman siap import (61 request)
 - `docs/design/garmin-app.figcraft`: file desain, dibuka dengan FigCraft
+- [CONTRIBUTING.id.md](CONTRIBUTING.id.md): cara menyiapkan proyek, membuat perubahan, dan mengirim pull request
 
 ## Keamanan
 

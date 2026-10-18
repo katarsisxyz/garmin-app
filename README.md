@@ -105,6 +105,7 @@ Endpoints, response format, and error codes are documented in [docs/API.md](docs
 - [docs/PRD.md](docs/PRD.md): goals, design decisions, milestones, and risks
 - [postman/](postman/): ready-to-import Postman collection (61 requests)
 - `docs/design/garmin-app.figcraft`: design file, opens in FigCraft
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to set up, make a change, and send a pull request
 
 The API reference and PRD are written in Indonesian.
 
