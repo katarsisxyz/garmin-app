@@ -1,118 +1,122 @@
 # Garmin Hub
 
-REST API dan dashboard web untuk data Garmin Connect: Body Battery, tidur, HRV, aktivitas, berat badan, tekanan darah, dan workout. Backend Go (GoFiber) membungkus library [garminconnect-go](https://github.com/katarsisxyz/garminconnect-go); frontend React disajikan dari server yang sama.
+**English** | [Bahasa Indonesia](README.id.md)
 
-> Proyek ini tidak resmi dan tidak berafiliasi dengan Garmin Ltd. Garmin Connect API yang dipakai bersifat privat dan bisa berubah sewaktu-waktu.
+A REST API and web dashboard for Garmin Connect data: Body Battery, sleep, HRV, activities, weight, blood pressure, and workouts. The Go backend (GoFiber) wraps the [garminconnect-go](https://github.com/katarsisxyz/garminconnect-go) library, and the React frontend is served from the same server.
 
-## Fitur
+> This project is unofficial and not affiliated with Garmin Ltd. It relies on Garmin Connect's private API, which can change at any time.
 
-- **Dashboard web** (desktop dan mobile): Hari ini, Aktivitas, Tidur & recovery, Body, Workout.
-- **Login akun Garmin** dengan email dan password, termasuk verifikasi 2 langkah (MFA). Password tidak pernah disimpan.
-- **Token Garmin terenkripsi** (AES-GCM) di SQLite dan diperbarui otomatis saat di-refresh.
-- **REST API** untuk ~60 endpoint: data harian, body, performa, aktivitas (termasuk unggah dan unduh file), workout, plus proxy untuk endpoint Garmin yang belum dibungkus.
-- **Dua cara autentikasi**: cookie session (JWT) untuk browser, header `X-API-Key` untuk server dan Postman.
-- **Log JSON** (logrus) satu baris per request, tanpa password atau token.
+## Features
 
-## Mulai cepat
+- **Web dashboard** (desktop and mobile): Today, Activities, Sleep & recovery, Body, Workouts. The interface is in Indonesian.
+- **Garmin account login** with email and password, including two-step verification (MFA). Passwords are never stored.
+- **Encrypted Garmin tokens** (AES-GCM) in SQLite, saved again automatically whenever they refresh.
+- **REST API** with about 60 endpoints: daily data, body, performance, activities (including file upload and download), workouts, and a proxy for Garmin endpoints that aren't wrapped yet.
+- **Two ways to authenticate**: a session cookie (JWT) for browsers, an `X-API-Key` header for servers and Postman.
+- **JSON logs** (logrus), one line per request, never containing passwords or tokens.
 
-Kebutuhan: Go 1.24+, Node.js 20+, `make`, dan `openssl`.
+## Quick start
 
-```sh
-make setup   # install dependency, buat .env, generate secret
-make dev     # backend :8080 + frontend dev server :5173
-```
-
-Buka http://localhost:5173, lalu login dengan akun Garmin Connect.
-
-Untuk mode produksi (frontend di-build dan disajikan oleh backend di satu port):
+Requirements: Go 1.24+, Node.js 20+, `make`, and `openssl`.
 
 ```sh
-make run     # build lalu jalankan di http://localhost:8080
+make setup   # install dependencies, create .env, generate secrets
+make dev     # backend on :8080 + frontend dev server on :5173
 ```
 
-## Perintah make
+Open http://localhost:5173 and sign in with your Garmin Connect account.
 
-| Perintah | Fungsi |
+For production mode (frontend built and served by the backend on one port):
+
+```sh
+make run     # build, then run on http://localhost:8080
+```
+
+## Make commands
+
+| Command | What it does |
 | --- | --- |
-| `make setup` | Install dependency Go dan npm, buat `.env` dari `.env.example`, isi secret yang masih kosong |
-| `make dev` | Build backend, lalu jalankan backend (:8080) dan Vite (:5173) bersamaan |
-| `make api` | Jalankan backend saja |
-| `make web` | Jalankan Vite saja; `/api` dan `/auth` di-proxy ke :8080 |
-| `make build` | Build frontend ke `web/dist` dan binary ke `bin/garmin-app` |
-| `make run` | Build lalu jalankan versi produksi |
-| `make test` | `go vet`, `go test`, dan type-check frontend |
-| `make clean` | Hapus `bin/` dan `web/dist` |
+| `make setup` | Install Go and npm dependencies, create `.env` from `.env.example`, fill in empty secrets |
+| `make dev` | Build the backend, then run the backend (:8080) and Vite (:5173) together |
+| `make api` | Run the backend only |
+| `make web` | Run Vite only; `/api` and `/auth` are proxied to :8080 |
+| `make build` | Build the frontend into `web/dist` and the binary into `bin/garmin-app` |
+| `make run` | Build, then run the production version |
+| `make test` | `go vet`, `go test`, and a frontend type check |
+| `make clean` | Remove `bin/` and `web/dist` |
 
-## Konfigurasi
+## Configuration
 
-Semua konfigurasi lewat environment variable atau file `.env`. Variabel yang sudah ada di environment menang atas `.env`.
+Everything is configured through environment variables or a `.env` file. Variables already set in the environment win over `.env`.
 
-| Variabel | Wajib | Default | Keterangan |
+| Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `API_KEY` | Ya | | Kunci untuk header `X-API-Key` (akses server-to-server ke semua akun) |
-| `TOKEN_ENC_KEY` | Ya | | 64 karakter hex untuk mengenkripsi token Garmin. **Jangan diganti** setelah dipakai: token lama tidak bisa dibuka lagi |
-| `JWT_SECRET` | Ya | | Minimal 32 karakter untuk menandatangani cookie session. Mengganti nilainya membuat semua browser logout |
-| `DB_PATH` | | `data/garmin.db` | Lokasi file SQLite |
-| `WEB_DIR` | | `web/dist` | Folder build frontend yang disajikan di `/` |
-| `PORT` | | `8080` | Port HTTP |
-| `LOG_LEVEL` | | `info` | `debug`, `info`, `warn`, atau `error`. `debug` juga menampilkan banner Fiber, tabel route, dan query SQL |
+| `API_KEY` | Yes | | Key for the `X-API-Key` header (server-to-server access to every account) |
+| `TOKEN_ENC_KEY` | Yes | | 64 hex characters that encrypt Garmin tokens. **Don't change it** once in use: stored tokens can no longer be decrypted |
+| `JWT_SECRET` | Yes | | At least 32 characters; signs session cookies. Changing it signs every browser out |
+| `DB_PATH` | | `data/garmin.db` | SQLite file location |
+| `WEB_DIR` | | `web/dist` | Frontend build folder served at `/` |
+| `PORT` | | `8080` | HTTP port |
+| `LOG_LEVEL` | | `info` | `debug`, `info`, `warn`, or `error`. `debug` also prints Fiber's banner, the route table, and SQL queries |
 
-`make setup` membuat secret acak untuk variabel yang masih kosong dan tidak pernah menimpa nilai yang sudah ada.
+`make setup` generates random secrets for empty variables and never overwrites existing values.
 
-## Cara kerja
+## How it works
 
 ```mermaid
 flowchart LR
-    B[Browser<br/>cookie session] --> F
+    B[Browser<br/>session cookie] --> F
     C[Server / Postman<br/>X-API-Key] --> F
     subgraph F[garmin-app - GoFiber]
-        M[Middleware<br/>log, auth] --> H[Handler] --> A[Accounts<br/>1 client per akun]
+        M[Middleware<br/>logging, auth] --> H[Handler] --> A[Accounts<br/>1 client per account]
     end
     A --> L[garminconnect-go] --> G[Garmin Connect]
-    A <--> T[(SQLite<br/>token terenkripsi)]
+    A <--> T[(SQLite<br/>encrypted tokens)]
 ```
 
-1. Pengguna login lewat `/auth/login`. Backend login ke Garmin; jika akun memakai MFA, kode diminta lewat `/auth/mfa`.
-2. Token Garmin disimpan terenkripsi di SQLite. ID akun web diambil dari Garmin profile ID.
-3. Browser menerima cookie `session` (JWT, HttpOnly, berlaku 7 hari) dan memanggil `/api/v1/accounts/me/...`.
-4. Setiap akun punya satu client Garmin di memori. Token di-refresh otomatis dan disimpan ulang.
+1. The user signs in through `/auth/login`. The backend logs in to Garmin; if the account uses MFA, the code is requested through `/auth/mfa`.
+2. Garmin tokens are stored encrypted in SQLite. A web account's ID is its Garmin profile ID.
+3. The browser receives a `session` cookie (JWT, HttpOnly, valid for 7 days) and calls `/api/v1/accounts/me/...`.
+4. Each account has one Garmin client in memory. Tokens refresh automatically and are saved again.
 
-Detail endpoint, format response, dan kode error ada di [docs/API.md](docs/API.md).
+Endpoints, response format, and error codes are documented in [docs/API.md](docs/API.md) (in Indonesian).
 
-## Struktur proyek
+## Project structure
 
 ```
 .
-├── main.go                 # konfigurasi, logger, database, routing, graceful shutdown
+├── main.go                 # configuration, logger, database, routing, graceful shutdown
 ├── internal/
-│   ├── accounts/           # client Garmin per akun, login + MFA, token store terenkripsi
-│   ├── handler/            # route /api/v1 dan /auth
-│   └── httpx/              # middleware auth (API key / JWT), logger, mapping error
-├── web/                    # frontend React + Vite + Tailwind
+│   ├── accounts/           # Garmin client per account, login + MFA, encrypted token store
+│   ├── handler/            # /api/v1 and /auth routes
+│   └── httpx/              # auth middleware (API key / JWT), logger, error mapping
+├── web/                    # React + Vite + Tailwind frontend
 ├── docs/
-│   ├── API.md              # referensi REST API
+│   ├── API.md              # REST API reference
 │   ├── PRD.md              # product requirements
-│   └── design/             # desain FigCraft (dashboard, login, MFA)
-├── postman/                # koleksi dan environment Postman
+│   └── design/             # FigCraft designs (dashboard, login, MFA)
+├── postman/                # Postman collection and environment
 └── Makefile
 ```
 
-## Dokumentasi
+## Documentation
 
-- [docs/API.md](docs/API.md): referensi endpoint, autentikasi, dan error
-- [docs/PRD.md](docs/PRD.md): tujuan, keputusan desain, milestone, dan risiko
-- [postman/](postman/): koleksi Postman siap import (61 request)
-- `docs/design/garmin-app.figcraft`: file desain, dibuka dengan FigCraft
+- [docs/API.md](docs/API.md): endpoints, authentication, and errors
+- [docs/PRD.md](docs/PRD.md): goals, design decisions, milestones, and risks
+- [postman/](postman/): ready-to-import Postman collection (61 requests)
+- `docs/design/garmin-app.figcraft`: design file, opens in FigCraft
 
-## Keamanan
+The API reference and PRD are written in Indonesian.
 
-- Password Garmin hanya dipakai untuk login dan tidak disimpan maupun di-log.
-- Token Garmin dienkripsi AES-GCM dan tidak pernah dikirim ke client.
-- Cookie session `HttpOnly` + `SameSite=Strict`; `Secure` otomatis saat diakses lewat HTTPS.
-- Login dan MFA dibatasi 5 percobaan per menit per IP. Login password berulang dari satu IP bisa diblokir Cloudflare milik Garmin.
-- Jangan set variabel `GARMINTOKENS`; library memakainya sebagai fallback dan bisa membuat token akun tertukar. Server menghapusnya saat start.
-- Simpan `.env` di luar version control (sudah ada di `.gitignore`).
+## Security
 
-## Lisensi
+- Garmin passwords are used only to sign in; they are never stored or logged.
+- Garmin tokens are encrypted with AES-GCM and never sent to clients.
+- Session cookies are `HttpOnly` + `SameSite=Strict`, and `Secure` automatically over HTTPS.
+- Login and MFA are limited to 5 attempts per minute per IP. Repeated password logins from one IP can get blocked by Garmin's Cloudflare.
+- Don't set the `GARMINTOKENS` variable: the library uses it as a fallback, which can mix up accounts' tokens. The server unsets it on start.
+- Keep `.env` out of version control (it's already in `.gitignore`).
+
+## License
 
 [MIT](LICENSE) © 2026 Reza Afri Suhangga Hasibuan
